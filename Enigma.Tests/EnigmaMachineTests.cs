@@ -1,119 +1,81 @@
-﻿using Moq;
-using NUnit.Framework;
-
-// ReSharper disable MemberCanBePrivate.Global
-// ReSharper disable UnaccessedField.Global
-// ReSharper disable InconsistentNaming
-// ReSharper disable PossibleNullReferenceException
-// ReSharper disable MemberCanBeProtected.Global
-// ReSharper disable FieldCanBeMadeReadOnly.Global
+﻿using Machine.Specifications;
+using Moq;
+using It = Machine.Specifications.It;
 
 namespace Enigma.Tests
 {
-    [TestFixture]
-    public class EnigmaMachineTests
+    [Subject("Enigma machine acceptance")]
+    public class When_converting_characters
     {
-        private EnigmaMachine _enigmaMachine;
+        static EnigmaMachine _enigmaMachine;
+        static char _result;
 
-        [SetUp]
-        public void SetUp()
+        Establish context = () => _enigmaMachine = new EnigmaMachine(new[] {1, 2, 3}, new[] {'M', 'C', 'K'});
+
+        Because of = () => _result = _enigmaMachine.Convert('E');
+
+        It should_convert = () => _result.ShouldEqual('Q');
+    }
+
+    [Subject("Enigma machine")]
+    public class When_setting_up_rotars
+    {
+        static Mock<IRotarFactory> _rotarFactory;
+        static Rotar _rotar1 = new Rotar(1, 'M');
+        static Rotar _rotar2 = new Rotar(2, 'C');
+        static Rotar _rotar3 = new Rotar(3, 'K');
+
+        Establish context = _SetupRotars;
+
+        Because of = () => new EnigmaMachine(_rotarFactory.Object, new[] {1, 2, 3}, new[] {'M', 'C', 'K'});
+
+        It should_set_the_left_rotars = () =>
         {
-            _enigmaMachine = new EnigmaMachine(new[] {1, 2, 3}, new[] {'M', 'C', 'K'});
-        }
+            _rotar3.LeftRotar.ShouldEqual(_rotar2);
+            _rotar2.LeftRotar.ShouldEqual(_rotar1);
+            _rotar1.LeftRotar.ShouldBeNull();
+        };
 
-        [TestFixture]
-        public abstract class Acceptance_tests : EnigmaMachineTests
+        static void _SetupRotars()
         {
-            [TestFixture]
-            public class When_converting_characters : Acceptance_tests
-            {
-                private char _first;
-
-                [SetUp]
-                public void BecauseOf()
-                {
-                    _first = _enigmaMachine.Convert('E');
-                }
-
-                [Test]
-                public void It_should_convert_correctly()
-                {
-                    Assert.That(_first, Is.EqualTo('Q'));
-                }
-            }
+            _rotarFactory = new Mock<IRotarFactory>();
+            _rotarFactory.Setup(x => x.GetRotar(1, 'M')).Returns(_rotar1);
+            _rotarFactory.Setup(x => x.GetRotar(2, 'C')).Returns(_rotar2);
+            _rotarFactory.Setup(x => x.GetRotar(3, 'K')).Returns(_rotar3);
         }
+    }
 
-        [TestFixture]
-        public class When_setting_up : EnigmaMachineTests
+    [Subject("Enigma machine")]
+    public class When_converting_character
+    {
+        Establish context = () =>
         {
-            private Rotar _rotar1;
-            private Rotar _rotar2;
-            private Rotar _rotar3;
+            _rotar3ShiftCount = 0;
+            var rotarFactory = new Mock<IRotarFactory>();
+            var rotar1 = new Mock<IRotar>();
+            var rotar2 = new Mock<IRotar>();
+            var rotar3 = new Mock<IRotar>();
+            rotar3.Setup(x => x.Shift()).Callback(() => _rotar3ShiftCount++);
+            rotarFactory.Setup(x => x.GetRotar(1, 'M')).Returns(rotar1.Object);
+            rotarFactory.Setup(x => x.GetRotar(2, 'C')).Returns(rotar2.Object);
+            rotarFactory.Setup(x => x.GetRotar(3, 'K')).Returns(rotar3.Object);
+            rotar3.Setup(x => x.Convert('E')).Returns('T');
+            rotar2.Setup(x => x.Convert('T')).Returns('W');
+            rotar1.Setup(x => x.Convert('W')).Returns('J');
+            rotar1.Setup(x => x.Reverse('X')).Returns('N');
+            rotar2.Setup(x => x.Reverse('N')).Returns('S');
+            rotar3.Setup(x => x.Reverse('S')).Returns('Q');
+            _enigmaMachine = new EnigmaMachine(rotarFactory.Object, new[] {1, 2, 3}, new[] {'M', 'C', 'K'});
+        };
 
-            [SetUp]
-            public void BecauseOf()
-            {
-                _rotar1 = new Rotar(1, 'A');
-                _rotar2 = new Rotar(2, 'B');
-                _rotar3 = new Rotar(3, 'C');
-                var rotarFactory = new Mock<IRotarFactory>();
-                rotarFactory.Setup(x => x.GetRotar(1, 'A')).Returns(_rotar1);
-                rotarFactory.Setup(x => x.GetRotar(2, 'B')).Returns(_rotar2);
-                rotarFactory.Setup(x => x.GetRotar(3, 'C')).Returns(_rotar3);
-                _enigmaMachine = new EnigmaMachine(rotarFactory.Object, new []{ 1, 2, 3 }, new []{ 'A', 'B', 'C' });
-            }
+        Because of = () => _output = _enigmaMachine.Convert('E');
 
-            [Test]
-            public void It_should_write_up_the_left_rotars()
-            {
-                Assert.That(_rotar3.LeftRotar, Is.EqualTo(_rotar2));
-                Assert.That(_rotar2.LeftRotar, Is.EqualTo(_rotar1));
-            }
-        }
+        It should_convert_through_each_rotar_reflector_and_reverse_through_rotars = () => _output.ShouldEqual('Q');
 
-        [TestFixture]
-        public class When_converting_characters_through_build_rotars : EnigmaMachineTests
-        {
-            private char _result;
-            private static Mock<IRotar> _rotar3;
+        It should_shift_the_third_rotars_before_each_character = () => _rotar3ShiftCount.ShouldEqual(1);
 
-            [SetUp]
-            public void BecauseOf()
-            {
-                var rotarFactory = _SetupRotars();
-                var enigmaMachine = new EnigmaMachine(rotarFactory.Object, new []{ 1, 2, 3 }, new []{ 'M', 'C', 'K' });
-                _result = enigmaMachine.Convert('E');
-            }
-
-            private static Mock<IRotarFactory> _SetupRotars()
-            {
-                var rotarFactory = new Mock<IRotarFactory>();
-                var rotar1 = new Mock<IRotar>();
-                var rotar2 = new Mock<IRotar>();
-                _rotar3 = new Mock<IRotar>();
-                rotarFactory.Setup(x => x.GetRotar(1, 'M')).Returns(rotar1.Object);
-                rotarFactory.Setup(x => x.GetRotar(2, 'C')).Returns(rotar2.Object);
-                rotarFactory.Setup(x => x.GetRotar(3, 'K')).Returns(_rotar3.Object);
-                _rotar3.Setup(x => x.Convert('E')).Returns('T');
-                rotar2.Setup(x => x.Convert('T')).Returns('W');
-                rotar1.Setup(x => x.Convert('W')).Returns('J');
-                rotar1.Setup(x => x.Reverse('X')).Returns('N');
-                rotar2.Setup(x => x.Reverse('N')).Returns('S');
-                _rotar3.Setup(x => x.Reverse('S')).Returns('Q');
-                return rotarFactory;
-            }
-
-            [Test]
-            public void It_should_pass_through_each_rotar_and_back_again()
-            {
-                Assert.That(_result, Is.EqualTo('Q'));
-            }
-
-            [Test]
-            public void It_should_shift_the_last_rotar()
-            {
-                _rotar3.Verify(x => x.Shift());
-            }
-        }
+        static int _rotar3ShiftCount;
+        static char _output;
+        static EnigmaMachine _enigmaMachine;
     }
 }

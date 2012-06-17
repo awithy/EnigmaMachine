@@ -1,109 +1,70 @@
-﻿using Moq;
-using NUnit.Framework;
+﻿using Machine.Specifications;
+using Moq;
+using It = Machine.Specifications.It;
 
 namespace Enigma.Tests
 {
-    [TestFixture]
-    public abstract class RotarTests
+    [Subject("Rotar")]
+    public class When_converting_character_with_rotar : WithRotar
     {
-        private Rotar _rotar;
+        Establish context = () => _rotar = new Rotar(3, 'K');
 
-        [TestFixture]
-        public class When_converting_character : RotarTests
+        Because of = () => _result = _rotar.Convert('E');
+
+        It should_convert_correctly = () => _result.ShouldEqual('O');
+    }
+
+    [Subject("Rotar")]
+    public class When_reverse_converting_character_with_rotar : WithRotar
+    {
+        Establish context = () => _rotar = new Rotar(1, 'M');
+
+        Because of = () => _result = _rotar.Reverse('X');
+
+        It should_reverse_correctly = () => _result.ShouldEqual('N');
+    }
+
+    [Subject("Rotar")]
+    public class When_shifting_rotar : WithRotar
+    {
+        Establish context = () => _rotar = new Rotar(3, 'K');
+
+        Because of = () =>
         {
-            private char _reuslt;
+            _rotar.Shift();
+            _rotar.Shift();
+            _rotar.Shift();
+            _result = _rotar.Convert('E');
+        };
 
-            [SetUp]
-            public void BecauseOf()
-            {
-                _rotar = new Rotar(3, 'K');
-                _rotar.Shift();
-                _reuslt = _rotar.Convert('E');
-            }
+        It should_convert_correctly = () => _result.ShouldEqual('J');
+    }
 
-            [Test]
-            public void It_should_look_up_in_map()
-            {
-                Assert.That(_reuslt, Is.EqualTo('T'));
-            }
-        }
+    [Subject("Rotar")]
+    public class When_shifting_rotar_with_connected_left_rotar : WithRotar
+    {
+        Establish context = () => _rotar = new Rotar(3, 'V') {LeftRotar = _leftRotar.Object};
 
-        [TestFixture]
-        public class When_reverse_converting_character : RotarTests
-        {
-            private char _reuslt;
+        Because of = () => _rotar.Shift();
 
-            [SetUp]
-            public void BecauseOf()
-            {
-                _rotar = new Rotar(1, 'M');
-                _reuslt = _rotar.Reverse('X');
-            }
+        It should_shift_the_left_rotar_if_needed = () => _leftRotar.Verify(x => x.Shift(), Times.Once());
 
-            [Test]
-            public void It_should_look_up_in_map()
-            {
-                Assert.That(_reuslt, Is.EqualTo('N'));
-            }
-        }
+        static Mock<IRotar> _leftRotar = new Mock<IRotar>();
+    }
 
-        [TestFixture]
-        public class When_shifting_rotar : RotarTests
-        {
-            private char _reuslt;
+    [Subject("Rotar")]
+    public class When_shifting_rotar_without_connected_left_rotar : WithRotar
+    {
+        Establish context = () => _rotar = new Rotar(3, 'V');
 
-            [SetUp]
-            public void BecauseOf()
-            {
-                _rotar = new Rotar(3, 'K');
-                _rotar.Shift();
-                _rotar.Shift();
-                _rotar.Shift();
-                _reuslt = _rotar.Convert('E');
-            }
+        Because of = () => _rotar.Shift();
 
-            [Test]
-            public void It_should_look_up_in_map()
-            {
-                Assert.That(_reuslt, Is.EqualTo('J'));
-            }
-        }
+        It should_not_blow_up = () => { };
+    }
 
-        [TestFixture]
-        public class When_shifting_rotar_with_connected_left_rotar : RotarTests
-        {
-            private Mock<IRotar> _leftRotar;
-
-            [SetUp]
-            public void BecauseOf()
-            {
-                _rotar = new Rotar(3, 'V');
-                _leftRotar = new Mock<IRotar>();
-                _rotar.LeftRotar = _leftRotar.Object;
-                _rotar.Shift();
-            }
-
-            [Test]
-            public void It_should_shift_the_left_rotar()
-            {
-               _leftRotar.Verify(x => x.Shift());
-            }
-        }
-
-        [TestFixture]
-        public class When_shifting_rotar_without_connected_left_rotar : RotarTests
-        {
-            [SetUp]
-            public void BecauseOf()
-            {
-                _rotar = new Rotar(3, 'V');
-                _rotar.Shift();
-            }
-
-            [Test]
-            public void It_shouldnt_blow_up()
-            {
-            }
-        }
+    public class WithRotar
+    {
+        protected static Rotar _rotar;
+        protected static char _result;
     }
 }
